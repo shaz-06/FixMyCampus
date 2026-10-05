@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FixMyCampus - Smart Issue Reporting & Automated Escalation</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for modern icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .animate-pulse-subtle { animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    </style>
+</head>
+<body class="h-full bg-slate-50 text-slate-800 flex flex-col justify-between">
+
+    <!-- App Root Wrapper -->
+    <div id="app" class="flex-1 flex flex-col min-h-0">
+        <!-- Dynamic Content Rendered Here via JS -->
+    </div>
+
+    <!-- Global Toast Notification Banner -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Global Modal Container -->
+    <div id="modal-container"></div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+
+        // Seed initial mock data if localStorage is empty
+        const INITIAL_ISSUES = [
+            {
+                id: "FMC-1001",
+                title: "Sparks coming from main electrical board in Science Block",
+                category: "Electrical problems",
+                department: "Electrical Department",
+                location: "Science Block, Room 302",
+                description: "There are visible electrical sparks and a burning smell coming from the wall panel near the projector.",
+                priority: "High",
+                status: "Reported",
+                studentId: "stu_01",
+                studentName: "Alex Morgan",
+                createdAt: new Date(Date.now() - 26 * 3600 * 1000).toISOString(), // 26 hours ago -> Triggers Auto Escalation simulation
+                resolvedAt: null,
+                resolutionProof: null,
+                history: [
+                    { status: "Reported", time: new Date(Date.now() - 26 * 3600 * 1000).toISOString(), note: "Issue submitted by student." }
+                ],
+                photoUrl: "https://placehold.co/600x400/fee2e2/991b1b?text=Electrical+Hazard"
+            },
+            {
+                id: "FMC-1002",
+                title: "Major water pipe burst near Library entrance",
+                category: "Water leakage or plumbing issues",
+                department: "Plumbing/Maintenance Department",
+                location: "Central Library Ground Floor",
+                description: "Clean water is flooding the main corridor, creating a slipping hazard for students.",
+                priority: "High",
+                status: "Assigned",
+                studentId: "stu_02",
+                studentName: "Jessica Taylor",
+                createdAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString(),
+                resolvedAt: null,
+                resolutionProof: null,
+                history: [
+                    { status: "Reported", time: new Date(Date.now() - 10 * 3600 * 1000).toISOString(), note: "Issue submitted by student." },
+                    { status: "Assigned", time: new Date(Date.now() - 9.5 * 3600 * 1000).toISOString(), note: "Assigned to Plumbing/Maintenance Department." }
+                ],
+                photoUrl: "https://placehold.co/600x400/e0f2fe/0369a1?text=Water+Leakage"
+            },
+            {
+                id: "FMC-1003",
+                title: "Broken desk chairs in Lecture Hall A",
+                category: "Damaged furniture",
+                department: "Civil/Maintenance Department",
+                location: "Main Auditorium Building, Hall A",
+                description: "At least 5 chairs have broken armrests and sharp metal edges exposed.",
+                priority: "Medium",
+                status: "Acknowledged",
+                studentId: "stu_01",
+                studentName: "Alex Morgan",
+                createdAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
+                resolvedAt: null,
+                resolutionProof: null,
+                history: [
+                    { status: "Reported", time: new Date(Date.now() - 5 * 3600 * 1000).toISOString(), note: "Issue submitted by student." },
+                    { status: "Assigned", time: new Date(Date.now() - 4.8 * 3600 * 1000).toISOString(), note: "Assigned to Civil/Maintenance Department." },
+                    { status: "Acknowledged", time: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), note: "Department Head acknowledged the issue." }
+                ],
+                photoUrl: "https://placehold.co/600x400/fef3c7/b45309?text=Broken+Furniture"
+            },
+            {
+                id: "FMC-1004",
+                title: "Overflowing garbage bins behind Cafeteria",
+                category: "Cleanliness and hygiene",
+                department: "Housekeeping Department",
+                location: "Student Union Cafeteria Backyard",
+                description: "Garbage hasn't been collected for 2 days, attracting stray animals and foul smell.",
+                priority: "Medium",
+                status: "In Progress",
+                studentId: "stu_03",
+                studentName: "David Kim",
+                createdAt: new Date(Date.now() - 14 * 3600 * 1000).toISOString(),
+                resolvedAt: null,
+                resolutionProof: null,
+                history: [
+                    { status: "Reported", time: new Date(Date.now() - 14 * 3600 * 1000).toISOString(), note: "Issue submitted." },
+                    { status: "Assigned", time: new Date(Date.now() - 13.9 * 3600 * 1000).toISOString(), note: "Assigned to Housekeeping." },
+                    { status: "In Progress", time: new Date(Date.now() - 8 * 3600 * 1000).toISOString(), note: "Cleaning crew dispatched." }
+                ],
+                photoUrl: "https://placehold.co/600x400/f1f5f9/475569?text=Cleanliness+Issue"
+            }
+        ];
+
+        // Predefined Demo Users for Quick Role Switching
+        const USERS = [
+            { id: "stu_01", name: "Alex Morgan", role: "Student", email: "alex.morgan@campus.edu", dept: null },
+            { id: "stu_02", name: "Jessica Taylor", role: "Student", email: "jessica.t@campus.edu", dept: null },
+            { id: "dept_elec", name: "Robert Vance", role: "Department Staff", email: "electrical.staff@campus.edu", dept: "Electrical Department" },
+            { id: "head_elec", name: "Dr. Eleanor Vance", role: "Department Head", email: "electrical.head@campus.edu", dept: "Electrical Department" },
+            { id: "auth_high", name: "Prof. Arthur Pendelton", role: "Higher Authority", email: "dean.studentaffairs@campus.edu", dept: null },
+            { id: "admin_super", name: "System Administrator", role: "Super Admin", email: "admin@fixmycampus.edu", dept: null }
+        ];
+
+        // Application State
+        let state = {
+            currentUser: USERS[0], // Default to student Alex Morgan
+            issues: JSON.parse(localStorage.getItem('fmc_issues')) || INITIAL_ISSUES,
+            notifications: JSON.parse(localStorage.getItem('fmc_notifications')) || [
+                { id: 1, userId: "stu_01", text: "Your issue FMC-1001 was submitted successfully.", time: "26 hours ago", read: false },
+                { id: 2, userId: "head_elec", text: "New High Priority issue FMC-1001 assigned to Electrical Department.", time: "26 hours ago", read: false }
+            ],
+            currentView: 'dashboard', // 'dashboard', 'report', 'detail', 'analytics', 'manage'
+            selectedIssueId: null,
+            filterCategory: 'All',
+            filterStatus: 'All',
+            filterPriority: 'All',
+            searchTerm: ''
+        };
+
+        // Save State to LocalStorage
+        function saveState() {
+            localStorage.setItem('fmc_issues', JSON.stringify(state.issues));
+            localStorage.setItem('fmc_notifications', JSON.stringify(state.notifications));
+        }
+
+        // Department Mapping Rules
+        const CATEGORY_TO_DEPT = {
+            "Electrical problems": "Electrical Department",
+            "Water leakage or plumbing issues": "Plumbing/Maintenance Department",
+            "Damaged furniture": "Civil/Maintenance Department",
+            "Cleanliness and hygiene": "Housekeeping Department",
+            "Roads and pathways": "Civil/Maintenance Department",
+            "Classroom infrastructure": "Civil/Maintenance Department",
+            "Safety issues": "Campus Security",
+            "Other": "General Administration"
+        };
+
+
+        // Check for 24-Hour Auto Escalation rule on load
+        function checkAutoEscalation() {
+            const now = Date.now();
+            let updated = false;
+
+            state.issues.forEach(issue => {
+                if (issue.status === 'Reported' || issue.status === 'Assigned') {
+                    const elapsedHours = (now - new Date(issue.createdAt).getTime()) / (1000 * 60 * 60);
+                    if (elapsedHours >= 24 && issue.status !== 'Escalated') {
+                        issue.status = 'Escalated';
+                        issue.history.push({
+                            status: 'Escalated',
+                            time: new Date().toISOString(),
+                            note: 'Automatic Escalation: The assigned department has not taken any action on this issue within the required 24-hour period.'
+                        });
+                        
+                        // Add notification for Higher Authority & Dept Head
+                        state.notifications.unshift({
+                            id: Date.now() + Math.random(),
+                            userId: 'auth_high',
+                            text: `[ESCALATED] Issue ${issue.id} (${issue.title}) auto-escalated after 24h without department action.`,
+                            time: 'Just now',
+                            read: false
+                        });
+                        updated = true;
+                    }
+                }
+            });
+
+            if (updated) {
+                saveState();
+                showToast("System Notice: Unresolved complaints over 24 hours have been automatically escalated to Higher Authorities.", "warning");
+            }
+        }
+
+        // Toast notification helper
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if(!container) return;
+            const toast = document.createElement('div');
+            const bgColors = {
+                success: 'bg-emerald-600 text-white',
+                warning: 'bg-amber-600 text-white',
+                error: 'bg-rose-600 text-white',
+                info: 'bg-indigo-600 text-white'
+            };
+            const icons = {
+                success: 'fa-check-circle',
+                warning: 'fa-triangle-exclamation',
+                error: 'fa-circle-xmark',
+                info: 'fa-circle-info'
+            };
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg font-medium text-sm transition transform translate-y-2 opacity-0 duration-300 ${bgColors[type] || bgColors.success}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.success} text-lg"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            
+            setTimeout(() => { toast.classList.remove('translate-y-2', 'opacity-0'); }, 50);
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4500);
+        }
+
+
+        function render() {
+            const app = document.getElementById('app');
+            if (!app) return;
+
+            checkAutoEscalation();
+
+            app.innerHTML = `
+                <!-- Top Navigation Bar -->
+                <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                        <!-- Logo & Brand -->
+                        <div class="flex items-center gap-3 cursor-pointer" onclick="switchView('dashboard')">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
+                                <i class="fa-solid fa-shield-halved text-xl"></i>
+                            </div>
+                            <div>
+                                <h1 class="font-bold text-lg text-slate-900 leading-tight">FixMyCampus</h1>
+                                <p class="text-xs text-slate-500 font-medium">Smart Issue Resolution & Escalation</p>
+                            </div>
+                        </div>
+
+                        <!-- Role Switcher & Quick User info -->
+                        <div class="flex items-center gap-4">
+                            <!-- Notifications dropdown / modal trigger -->
+                            <div class="relative">
+                                <button onclick="toggleNotificationsModal()" class="relative p-2 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition">
+                                    <i class="fa-regular fa-bell text-xl"></i>
+                                    ${getUnreadCount() > 0 ? `<span class="absolute top-1 right-1 w-5 h-5 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white">${getUnreadCount()}</span>` : ''}
+                                </button>
+                            </div>
+
+                            <!-- Role Switcher Dropdown -->
+                            <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                                <span class="text-xs font-semibold px-2 text-slate-500 hidden sm:inline">Role:</span>
+                                <select id="role-switcher" onchange="handleRoleSwitch(this.value)" class="bg-white text-slate-800 text-xs sm:text-sm font-semibold py-1.5 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer">
+                                    ${USERS.map(u => `
+                                        <option value="${u.id}" ${state.currentUser.id === u.id ? 'selected' : ''}>
+                                            ${u.name} (${u.role}${u.dept ? ' - ' + u.dept : ''})
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Main Content Body -->
+                <main class="flex-1 overflow-y-auto custom-scrollbar">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                        ${renderCurrentView()}
+                    </div>
+                </main>
+
+                <!-- Footer -->
+                <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-500">
+                    <p>FixMyCampus Platform &copy; 2026. Automated 24h Escalation Active &bull; Secure Campus Infrastructure System</p>
+                </footer>
+            `;
+        }
+
+        function getUnreadCount() {
+            return state.notifications.filter(n => n.userId === state.currentUser.id && !n.read).length;
+        }
+
+        function handleRoleSwitch(userId) {
+            const found = USERS.find(u => u.id === userId);
+            if (found) {
+                state.currentUser = found;
+                state.currentView = 'dashboard';
+                showToast(`Switched active user to ${found.name} (${found.role})`, 'info');
+                render();
+            }
+        }
+
+        function switchView(viewName, issueId = null) {
+            state.currentView = viewName;
+            if (issueId) state.selectedIssueId = issueId;
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+
+        function renderCurrentView() {
+            switch(state.currentView) {
+                case 'report':
+                    return renderReportIssueView();
+                case 'detail':
+                    return renderIssueDetailView();
+                case 'analytics':
+                    return renderAnalyticsView();
+                case 'dashboard':
+                default:
+                    return renderRoleDashboard();
+            }
+        }
+
+        function renderRoleDashboard() {
+            const role = state.currentUser.role;
+            if (role === 'Student') {
+                return renderStudentDashboard();
+            } else if (role === 'Department Staff' || role === 'Department Head') {
+                return renderDepartmentDashboard();
+            } else if (role === 'Higher Authority' || role === 'Super Admin') {
+                return renderAdminDashboard();
+            }
+            return renderStudentDashboard();
+        }
+
+
+        function renderStudentDashboard() {
+            const myIssues = state.issues.filter(i => i.studentId === state.currentUser.id);
+            const activeCount = myIssues.filter(i => i.status !== 'Resolved').length;
+            const resolvedCount = myIssues.filter(i => i.status === 'Resolved').length;
+            const escalatedCount = myIssues.filter(i => i.status === 'Escalated').length;
+
+            return `
+                <div class="space-y-6">
+                    <!-- Welcome & Action Header -->
+                    <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-2xl p-6 sm:p-8 text-white shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <span class="bg-indigo-500/50 text-indigo-100 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">Student Portal</span>
+                            <h2 class="text-2xl sm:text-3xl font-bold mt-2">Welcome back, ${state.currentUser.name} 👋</h2>
+                            <p class="text-indigo-100 text-sm mt-1">Report campus maintenance issues instantly and track resolution progress in real time.</p>
+                        </div>
+                        <button onclick="switchView('report')" class="bg-white text-indigo-700 hover:bg-indigo-50 font-bold px-6 py-3 rounded-xl shadow-lg transition transform hover:-translate-y-0.5 flex items-center gap-2">
+                            <i class="fa-solid fa-camera text-indigo-600"></i> Report an Issue
+                        </button>
+                    </div>
+
+                    <!-- Statistics Summary Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Active Reports</p>
+                                <h3 class="text-3xl font-bold text-slate-800 mt-1">${activeCount}</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Successfully Resolved</p>
+                                <h3 class="text-3xl font-bold text-emerald-600 mt-1">${resolvedCount}</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Auto-Escalated</p>
+                                <h3 class="text-3xl font-bold text-rose-600 mt-1">${escalatedCount}</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- My Issues Section -->
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">My Reported Issues</h3>
+                                <p class="text-xs text-slate-500">Track progress and updates on your submitted campus complaints.</p>
+                            </div>
+                            <div class="flex items-center gap-2 w-full sm:w-auto">
+                                <select id="student-filter" onchange="filterStudentIssues(this.value)" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="All">All Statuses</option>
+                                    <option value="Active">Active / Pending</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Escalated">Escalated</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="student-issues-list" class="divide-y divide-slate-100">
+                            ${myIssues.length === 0 ? `
+                                <div class="p-12 text-center">
+                                    <div class="w-16 h-16 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center text-2xl mx-auto mb-4">
+                                        <i class="fa-solid fa-clipboard-list"></i>
+                                    </div>
+                                    <h4 class="text-base font-bold text-slate-800">No issues reported yet</h4>
+                                    <p class="text-slate-500 text-sm mt-1">Found a broken light, leak, or hazard on campus? Let us know!</p>
+                                    <button onclick="switchView('report')" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-xl shadow transition">
+                                        Report an Issue Now
+                                    </button>
+                                </div>
+                            ` : myIssues.map(issue => renderIssueCard(issue)).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function filterStudentIssues(statusFilter) {
+            // Re-render or filter list dynamically
+            const listEl = document.getElementById('student-issues-list');
+            let myIssues = state.issues.filter(i => i.studentId === state.currentUser.id);
+            if (statusFilter === 'Active') myIssues = myIssues.filter(i => i.status !== 'Resolved');
+            if (statusFilter === 'Resolved') myIssues = myIssues.filter(i => i.status === 'Resolved');
+            if (statusFilter === 'Escalated') myIssues = myIssues.filter(i => i.status === 'Escalated');
+
+            listEl.innerHTML = myIssues.length === 0 ? `
+                <div class="p-8 text-center text-slate-500 text-sm">No issues match the selected filter.</div>
+            ` : myIssues.map(issue => renderIssueCard(issue)).join('');
+        }
+
+
+        function renderIssueCard(issue) {
+            const statusColors = {
+                'Reported': 'bg-slate-100 text-slate-700 border-slate-200',
+                'Assigned': 'bg-blue-50 text-blue-700 border-blue-200',
+                'Acknowledged': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                'In Progress': 'bg-amber-50 text-amber-700 border-amber-200',
+                'Resolved': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'Escalated': 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse-subtle'
+            };
+
+            const priorityColors = {
+                'High': 'text-rose-600 bg-rose-50 border-rose-200',
+                'Medium': 'text-amber-600 bg-amber-50 border-amber-200',
+                'Low': 'text-emerald-600 bg-emerald-50 border-emerald-200'
+            };
+
+            // Calculate 24h timer countdown
+            const createdTime = new Date(issue.createdAt).getTime();
+            const hoursElapsed = (Date.now() - createdTime) / (1000 * 60 * 60);
+            const hoursRemaining = Math.max(0, Math.round(24 - hoursElapsed));
+
+            return `
+                <div class="p-5 hover:bg-slate-50/80 transition flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer" onclick="switchView('detail', '${issue.id}')">
+                    <div class="flex items-start gap-4">
+                        <img src="${issue.photoUrl}" alt="Issue Photo" class="w-16 h-16 rounded-xl object-cover border border-slate-200 shadow-sm flex-shrink-0" onerror="this.src='https://placehold.co/100x100?text=Photo'">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-xs font-bold text-indigo-600 font-mono">${issue.id}</span>
+                                <span class="px-2 py-0.5 rounded-full text-xs font-semibold border ${statusColors[issue.status] || 'bg-slate-100 text-slate-700'}">${issue.status}</span>
+                                <span class="px-2 py-0.5 rounded-full text-xs font-semibold border ${priorityColors[issue.priority]}"><i class="fa-solid fa-circle text-[8px] mr-1"></i>${issue.priority} Priority</span>
+                            </div>
+                            <h4 class="text-base font-bold text-slate-900 mt-1">${issue.title}</h4>
+                            <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                                <span><i class="fa-solid fa-location-dot text-slate-400 mr-1"></i>${issue.location}</span>
+                                &bull;
+                                <span><i class="fa-solid fa-building text-slate-400 mr-1"></i>${issue.department}</span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-between w-full md:w-auto gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
+                        ${issue.status !== 'Resolved' && issue.status !== 'Escalated' ? `
+                            <div class="text-right text-xs">
+                                <span class="text-slate-400 block font-medium">Escalation Timer</span>
+                                <span class="font-bold text-slate-700"><i class="fa-regular fa-clock mr-1 text-indigo-500"></i>${hoursRemaining}h remaining</span>
+                            </div>
+                        ` : ''}
+                        ${issue.status === 'Escalated' ? `
+                            <div class="text-right text-xs text-rose-600 font-bold">
+                                <i class="fa-solid fa-triangle-exclamation mr-1"></i> Auto-Escalated to Authority
+                            </div>
+                        ` : ''}
+                        <button class="bg-slate-100 hover:bg-indigo-600 hover:text-white text-slate-700 p-2.5 rounded-xl transition font-semibold text-xs flex items-center gap-1">
+                            <span>Details</span>
+                            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+
+        function renderReportIssueView() {
+            return `
+                <div class="max-w-3xl mx-auto space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <button onclick="switchView('dashboard')" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mb-1">
+                                <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                            </button>
+                            <h2 class="text-2xl font-bold text-slate-900">Report a Campus Issue</h2>
+                            <p class="text-slate-500 text-sm">Provide details and upload a photo for rapid department routing and 24h response tracking.</p>
+                        </div>
+                    </div>
+
+                    <form id="report-form" onsubmit="handleIssueSubmit(event)" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+                        <!-- Category Selection -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Issue Category <span class="text-rose-500">*</span></label>
+                            <select id="issue-category" required onchange="updateDepartmentHint(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-slate-800 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                                <option value="">Select issue category...</option>
+                                <option value="Electrical problems">Electrical problems</option>
+                                <option value="Water leakage or plumbing issues">Water leakage or plumbing issues</option>
+                                <option value="Damaged furniture">Damaged furniture</option>
+                                <option value="Cleanliness and hygiene">Cleanliness and hygiene</option>
+                                <option value="Roads and pathways">Roads and pathways</option>
+                                <option value="Classroom infrastructure">Classroom infrastructure</option>
+                                <option value="Safety issues">Safety issues</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <p id="dept-auto-hint" class="text-xs text-indigo-600 font-medium mt-1.5 hidden"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Will automatically route to: <span id="target-dept-name" class="font-bold"></span></p>
+                        </div>
+
+                        <!-- Issue Title -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Issue Title <span class="text-rose-500">*</span></label>
+                            <input type="text" id="issue-title" required placeholder="e.g. Broken ceiling fan in Lecture Hall 4" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+
+                        <!-- Exact Location -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Exact Location <span class="text-rose-500">*</span></label>
+                            <input type="text" id="issue-location" required placeholder="e.g. Science Block, 2nd Floor Corridor" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+
+                        <!-- Priority Selection -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Priority Level <span class="text-rose-500">*</span></label>
+                            <div class="grid grid-cols-3 gap-3">
+                                <label class="border border-slate-200 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition">
+                                    <input type="radio" name="priority" value="Low" class="text-indigo-600 focus:ring-indigo-500">
+                                    <div>
+                                        <span class="block text-sm font-bold text-emerald-600">🟢 Low</span>
+                                        <span class="text-xs text-slate-400">Minor maintenance</span>
+                                    </div>
+                                </label>
+                                <label class="border border-slate-200 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition">
+                                    <input type="radio" name="priority" value="Medium" checked class="text-indigo-600 focus:ring-indigo-500">
+                                    <div>
+                                        <span class="block text-sm font-bold text-amber-600">🟠 Medium</span>
+                                        <span class="text-xs text-slate-400">Needs attention</span>
+                                    </div>
+                                </label>
+                                <label class="border border-slate-200 rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition">
+                                    <input type="radio" name="priority" value="High" class="text-indigo-600 focus:ring-indigo-500">
+                                    <div>
+                                        <span class="block text-sm font-bold text-rose-600">🔴 High</span>
+                                        <span class="text-xs text-slate-400">Hazard / Urgent</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Detailed Description <span class="text-rose-500">*</span></label>
+                            <textarea id="issue-desc" rows="4" required placeholder="Describe the issue in detail to help maintenance staff diagnose and repair quickly..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-slate-800 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                        </div>
+
+                        <!-- Photo Upload / Capture simulator -->
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Photo Proof (Upload or Capture)</label>
+                            <div class="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:bg-slate-50 transition cursor-pointer relative" onclick="document.getElementById('file-input').click()">
+                                <input type="file" id="file-input" accept="image/*" class="hidden" onchange="previewImage(event)">
+                                <div id="upload-placeholder">
+                                    <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-xl mx-auto mb-2">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    </div>
+                                    <p class="text-sm font-bold text-slate-700">Click to upload photo or drag & drop</p>
+                                    <p class="text-xs text-slate-400 mt-1">PNG, JPG or camera snap up to 10MB</p>
+                                </div>
+                                <div id="image-preview-container" class="hidden relative">
+                                    <img id="preview-img" src="" alt="Preview" class="max-h-48 mx-auto rounded-xl shadow-md">
+                                    <button type="button" onclick="event.stopPropagation(); clearPhoto();" class="absolute top-2 right-2 bg-rose-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-xs shadow hover:bg-rose-700">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Action -->
+                        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                            <button type="button" onclick="switchView('dashboard')" class="px-6 py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition">
+                                Cancel
+                            </button>
+                            <button type="submit" class="px-8 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-200 transition">
+                                Submit Complaint
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+        }
+
+        let uploadedPhotoData = "https://placehold.co/600x400/e2e8f0/475569?text=Campus+Issue+Photo";
+
+        function updateDepartmentHint(category) {
+            const hintEl = document.getElementById('dept-auto-hint');
+            const targetNameEl = document.getElementById('target-dept-name');
+            if (category && CATEGORY_TO_DEPT[category]) {
+                targetNameEl.textContent = CATEGORY_TO_DEPT[category];
+                hintEl.classList.remove('hidden');
+            } else {
+                hintEl.classList.add('hidden');
+            }
+        }
+
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedPhotoData = e.target.result;
+                    document.getElementById('preview-img').src = uploadedPhotoData;
+                    document.getElementById('upload-placeholder').classList.add('hidden');
+                    document.getElementById('image-preview-container').classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function clearPhoto() {
+            uploadedPhotoData = "https://placehold.co/600x400/e2e8f0/475569?text=Campus+Issue+Photo";
+            document.getElementById('file-input').value = "";
+            document.getElementById('upload-placeholder').classList.remove('hidden');
+            document.getElementById('image-preview-container').classList.add('hidden');
+        }
+
+        function handleIssueSubmit(event) {
+            event.preventDefault();
+            const category = document.getElementById('issue-category').value;
+            const title = document.getElementById('issue-title').value;
+            const location = document.getElementById('issue-location').value;
+            const description = document.getElementById('issue-desc').value;
+            const priorityInput = document.querySelector('input[name="priority"]:checked');
+            const priority = priorityInput ? priorityInput.value : 'Medium';
+
+            const assignedDept = CATEGORY_TO_DEPT[category] || 'General Administration';
+            const newId = `FMC-${Math.floor(1000 + Math.random() * 9000)}`;
+
+            const newIssue = {
+                id: newId,
+                title,
+                category,
+                department: assignedDept,
+                location,
+                description,
+                priority,
+                status: 'Reported',
+                studentId: state.currentUser.id,
+                studentName: state.currentUser.name,
+                createdAt: new Date().toISOString(),
+                resolvedAt: null,
+                resolutionProof: null,
+                history: [
+                    { status: 'Reported', time: new Date().toISOString(), note: `Issue submitted by student ${state.currentUser.name}.` },
+                    { status: 'Assigned', time: new Date().toISOString(), note: `Automatically assigned to ${assignedDept} based on category.` }
+                ],
+                photoUrl: uploadedPhotoData
+            };
+
+            // Fast track status to Assigned upon submission
+            newIssue.status = 'Assigned';
+
+            state.issues.unshift(newIssue);
+
+            // Add notification for department
+            state.notifications.unshift({
+                id: Date.now(),
+                userId: 'head_elec',
+                text: `New ${priority} Priority issue (${newId}) assigned to ${assignedDept}.`,
+                time: 'Just now',
+                read: false
+            });
+
+            saveState();
+            showToast(`Issue ${newId} successfully submitted and assigned to ${assignedDept}!`, 'success');
+            switchView('dashboard');
+        }
+
+
+        function renderDepartmentDashboard() {
+            const userDept = state.currentUser.dept;
+            const deptIssues = state.issues.filter(i => i.department === userDept || state.currentUser.role === 'Super Admin');
+            
+            const pendingCount = deptIssues.filter(i => i.status !== 'Resolved').length;
+            const resolvedCount = deptIssues.filter(i => i.status === 'Resolved').length;
+            const escalatedCount = deptIssues.filter(i => i.status === 'Escalated').length;
+
+            return `
+                <div class="space-y-6">
+                    <!-- Dashboard Header -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <span class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">${state.currentUser.role} Portal</span>
+                            <h2 class="text-2xl font-bold text-slate-900 mt-2">${userDept || 'All Departments'} Management</h2>
+                            <p class="text-slate-500 text-sm">Acknowledge, update status, and resolve assigned campus maintenance tasks.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button onclick="switchView('analytics')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2.5 rounded-xl text-sm transition flex items-center gap-2">
+                                <i class="fa-solid fa-chart-pie text-indigo-600"></i> Analytics & Reports
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Department Stats -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Pending / Active</p>
+                                <h3 class="text-3xl font-bold text-indigo-600 mt-1">${pendingCount}</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-list-check"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Resolved Issues</p>
+                                <h3 class="text-3xl font-bold text-emerald-600 mt-1">${resolvedCount}</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-check-double"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Escalated (Over 24h)</p>
+                                <h3 class="text-3xl font-bold text-rose-600 mt-1">${escalatedCount}</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filters & Issues Table -->
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="p-6 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Assigned Complaints</h3>
+                                <p class="text-xs text-slate-500">Review and update status before the 24-hour escalation deadline.</p>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                                <select id="dept-filter-status" onchange="filterDeptTable()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="All">All Statuses</option>
+                                    <option value="Assigned">Assigned</option>
+                                    <option value="Acknowledged">Acknowledged</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Escalated">Escalated</option>
+                                </select>
+                                <select id="dept-filter-priority" onchange="filterDeptTable()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="All">All Priorities</option>
+                                    <option value="High">High</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Low">Low</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="dept-issues-container" class="divide-y divide-slate-100">
+                            ${deptIssues.length === 0 ? `
+                                <div class="p-12 text-center text-slate-500 text-sm">No issues currently assigned to this department.</div>
+                            ` : deptIssues.map(issue => renderDeptIssueRow(issue)).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function filterDeptTable() {
+            const statusFilter = document.getElementById('dept-filter-status').value;
+            const priorityFilter = document.getElementById('dept-filter-priority').value;
+            const container = document.getElementById('dept-issues-container');
+            const userDept = state.currentUser.dept;
+
+            let issues = state.issues.filter(i => i.department === userDept || state.currentUser.role === 'Super Admin');
+            if (statusFilter !== 'All') issues = issues.filter(i => i.status === statusFilter);
+            if (priorityFilter !== 'All') issues = issues.filter(i => i.priority === priorityFilter);
+
+            container.innerHTML = issues.length === 0 ? `
+                <div class="p-8 text-center text-slate-500 text-sm">No issues match the selected filters.</div>
+            ` : issues.map(issue => renderDeptIssueRow(issue)).join('');
+        }
+
+        function renderDeptIssueRow(issue) {
+            return renderIssueCard(issue);
+        }
+
+
+        function renderAdminDashboard() {
+            const allIssues = state.issues;
+            const total = allIssues.length;
+            const resolved = allIssues.filter(i => i.status === 'Resolved').length;
+            const escalated = allIssues.filter(i => i.status === 'Escalated').length;
+            const pending = total - resolved;
+
+            return `
+                <div class="space-y-6">
+                    <!-- Admin Header -->
+                    <div class="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl p-6 sm:p-8 text-white shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <span class="bg-indigo-500/30 text-indigo-300 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">Higher Authority & Super Admin</span>
+                            <h2 class="text-2xl sm:text-3xl font-bold mt-2">Campus Overview & Escalation Monitor</h2>
+                            <p class="text-slate-300 text-sm mt-1">Monitor department response times, overdue tasks, and auto-escalated grievances.</p>
+                        </div>
+                        <button onclick="switchView('analytics')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie"></i> View Full Analytics
+                        </button>
+                    </div>
+
+                    <!-- High-level Metric Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                            <p class="text-xs font-semibold uppercase text-slate-400">Total Reports</p>
+                            <h3 class="text-3xl font-bold text-slate-900 mt-1">${total}</h3>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                            <p class="text-xs font-semibold uppercase text-slate-400">Pending / Active</p>
+                            <h3 class="text-3xl font-bold text-indigo-600 mt-1">${pending}</h3>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                            <p class="text-xs font-semibold uppercase text-slate-400">Resolved</p>
+                            <h3 class="text-3xl font-bold text-emerald-600 mt-1">${resolved}</h3>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                            <p class="text-xs font-semibold uppercase text-slate-400">Auto-Escalated</p>
+                            <h3 class="text-3xl font-bold text-rose-600 mt-1">${escalated}</h3>
+                        </div>
+                    </div>
+
+                    <!-- Escalated / Overdue Issues Focus Section -->
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="p-6 border-b border-slate-200 bg-rose-50/50 flex justify-between items-center">
+                            <div>
+                                <h3 class="text-lg font-bold text-rose-900"><i class="fa-solid fa-triangle-exclamation text-rose-600 mr-2"></i> Escalated & Overdue Complaints</h3>
+                                <p class="text-xs text-rose-700">Departments failed to take action within the 24-hour window.</p>
+                            </div>
+                        </div>
+                        <div class="divide-y divide-slate-100">
+                            ${allIssues.filter(i => i.status === 'Escalated').length === 0 ? `
+                                <div class="p-8 text-center text-slate-500 text-sm">No escalated complaints at this time. All departments are performing within the 24h SLA.</div>
+                            ` : allIssues.filter(i => i.status === 'Escalated').map(issue => renderIssueCard(issue)).join('')}
+                        </div>
+                    </div>
+
+                    <!-- All Campus Issues List -->
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="p-6 border-b border-slate-200">
+                            <h3 class="text-lg font-bold text-slate-900">All Campus Issues</h3>
+                            <p class="text-xs text-slate-500">Complete institutional record across all departments.</p>
+                        </div>
+                        <div class="divide-y divide-slate-100">
+                            ${allIssues.map(issue => renderIssueCard(issue)).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAnalyticsView() {
+            return `
+                <div class="max-w-5xl mx-auto space-y-6">
+                    <button onclick="switchView('dashboard')" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                    </button>
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-900">Campus Department Performance & Analytics</h2>
+                            <p class="text-slate-500 text-sm">Response times, departmental breakdown, and resolution metrics.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                <h4 class="font-bold text-slate-800 mb-3"><i class="fa-solid fa-chart-bar text-indigo-600 mr-2"></i> Issues by Department</h4>
+                                <ul class="space-y-3 text-sm">
+                                    <li class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                        <span class="font-medium text-slate-700">Electrical Department</span>
+                                        <span class="font-bold bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-xs">1 Active / 1 Escalated</span>
+                                    </li>
+                                    <li class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                        <span class="font-medium text-slate-700">Plumbing/Maintenance</span>
+                                        <span class="font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-xs">1 Assigned</span>
+                                    </li>
+                                    <li class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                        <span class="font-medium text-slate-700">Civil/Maintenance</span>
+                                        <span class="font-bold bg-amber-50 text-amber-700 px-2.5 py-1 rounded-md text-xs">1 Acknowledged</span>
+                                    </li>
+                                    <li class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
+                                        <span class="font-medium text-slate-700">Housekeeping Department</span>
+                                        <span class="font-bold bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md text-xs">1 In Progress</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                <h4 class="font-bold text-slate-800 mb-3"><i class="fa-solid fa-clock-rotate-left text-indigo-600 mr-2"></i> Department Response SLA</h4>
+                                <div class="space-y-4 text-xs text-slate-600">
+                                    <div>
+                                        <div class="flex justify-between font-semibold mb-1">
+                                            <span>Housekeeping</span>
+                                            <span class="text-emerald-600">Avg. 4.2 hours</span>
+                                        </div>
+                                        <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden"><div class="bg-emerald-500 h-full w-[85%]"></div></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between font-semibold mb-1">
+                                            <span>Plumbing</span>
+                                            <span class="text-blue-600">Avg. 6.5 hours</span>
+                                        </div>
+                                        <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden"><div class="bg-blue-500 h-full w-[70%]"></div></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between font-semibold mb-1">
+                                            <span>Civil Department</span>
+                                            <span class="text-amber-600">Avg. 12.1 hours</span>
+                                        </div>
+                                        <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden"><div class="bg-amber-500 h-full w-[50%]"></div></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between font-semibold mb-1">
+                                            <span>Electrical Department</span>
+                                            <span class="text-rose-600">Avg. 26.4 hours (Delayed)</span>
+                                        </div>
+                                        <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden"><div class="bg-rose-500 h-full w-[95%]"></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+
+        function renderIssueDetailView() {
+            const issue = state.issues.find(i => i.id === state.selectedIssueId);
+            if (!issue) return `<div class="p-8 text-center">Issue not found.</div>`;
+
+            const isStaffOrHead = state.currentUser.role === 'Department Staff' || state.currentUser.role === 'Department Head' || state.currentUser.role === 'Super Admin';
+
+            return `
+                <div class="max-w-4xl mx-auto space-y-6">
+                    <button onclick="switchView('dashboard')" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+                    </button>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-6 sm:p-8 space-y-6">
+                        <!-- Header & Status -->
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-6">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-xs font-bold text-indigo-600 font-mono">${issue.id}</span>
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700">${issue.status}</span>
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">${issue.priority} Priority</span>
+                                </div>
+                                <h2 class="text-xl sm:text-2xl font-bold text-slate-900">${issue.title}</h2>
+                            </div>
+
+                            ${isStaffOrHead && issue.status !== 'Resolved' ? `
+                                <div class="flex items-center gap-2">
+                                    ${issue.status === 'Assigned' ? `
+                                        <button onclick="updateIssueStatus('${issue.id}', 'Acknowledged')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow transition">
+                                            Acknowledge Issue
+                                        </button>
+                                    ` : ''}
+                                    ${issue.status !== 'In Progress' && issue.status !== 'Acknowledged' ? `
+                                        <button onclick="updateIssueStatus('${issue.id}', 'In Progress')" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow transition">
+                                            Mark In Progress
+                                        </button>
+                                    ` : ''}
+                                    <button onclick="openResolveModal('${issue.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow transition">
+                                        Mark as Resolved
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Details Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-4">
+                                <div>
+                                    <span class="text-xs font-semibold uppercase text-slate-400">Category</span>
+                                    <p class="text-sm font-bold text-slate-800">${issue.category}</p>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-semibold uppercase text-slate-400">Assigned Department</span>
+                                    <p class="text-sm font-bold text-slate-800">${issue.department}</p>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-semibold uppercase text-slate-400">Exact Location</span>
+                                    <p class="text-sm font-bold text-slate-800"><i class="fa-solid fa-location-dot text-indigo-500 mr-1"></i>${issue.location}</p>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-semibold uppercase text-slate-400">Reported By</span>
+                                    <p class="text-sm font-bold text-slate-800">${issue.studentName}</p>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-semibold uppercase text-slate-400">Submission Timestamp</span>
+                                    <p class="text-sm font-medium text-slate-700">${new Date(issue.createdAt).toLocaleString()}</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <span class="text-xs font-semibold uppercase text-slate-400 block mb-2">Issue Photo Proof</span>
+                                <img src="${issue.photoUrl}" alt="Issue Proof" class="rounded-xl border border-slate-200 shadow-md w-full h-64 object-cover">
+                            </div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <span class="text-xs font-semibold uppercase text-slate-400 block mb-1">Description</span>
+                            <p class="text-sm text-slate-700 leading-relaxed">${issue.description}</p>
+                        </div>
+
+                        ${issue.resolutionProof ? `
+                            <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                                <span class="text-xs font-semibold uppercase text-emerald-700 block mb-1"><i class="fa-solid fa-circle-check mr-1"></i> Resolution Proof</span>
+                                <p class="text-sm text-emerald-900">${issue.resolutionProof}</p>
+                            </div>
+                        ` : ''}
+
+                        <!-- Progress Timeline -->
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 mb-4">Progress Timeline & Audit Trail</h3>
+                            <div class="border-l-2 border-indigo-200 ml-3 space-y-6 pl-4">
+                                ${issue.history.map((h, idx) => `
+                                    <div class="relative">
+                                        <div class="absolute -left-[23px] top-0 w-3.5 h-3.5 rounded-full bg-indigo-600 border-2 border-white"></div>
+                                        <div>
+                                            <span class="text-xs font-bold text-indigo-600">${h.status}</span>
+                                            <span class="text-xs text-slate-400 ml-2">${new Date(h.time).toLocaleString()}</span>
+                                            <p class="text-xs text-slate-700 mt-0.5">${h.note}</p>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateIssueStatus(issueId, newStatus) {
+            const issue = state.issues.find(i => i.id === issueId);
+            if (issue) {
+                issue.status = newStatus;
+                issue.history.push({
+                    status: newStatus,
+                    time: new Date().toISOString(),
+                    note: `Status changed to ${newStatus} by ${state.currentUser.name} (${state.currentUser.role}).`
+                });
+                saveState();
+                showToast(`Issue ${issueId} status updated to ${newStatus}`, 'success');
+                render();
+            }
+        }
+
+        function openResolveModal(issueId) {
+            const modal = document.getElementById('modal-container');
+            modal.innerHTML = `
+                <div class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+                        <h3 class="text-lg font-bold text-slate-900">Resolve Complaint ${issueId}</h3>
+                        <p class="text-xs text-slate-500">Provide resolution notes or proof of repair for the student and administration.</p>
+                        <textarea id="resolution-note" rows="3" placeholder="e.g. Replaced faulty wiring and tested electrical panel successfully." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                        <div class="flex justify-end gap-2 pt-2">
+                            <button onclick="document.getElementById('modal-container').innerHTML=''" class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700">Cancel</button>
+                            <button onclick="submitResolution('${issueId}')" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow">Confirm Resolution</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function submitResolution(issueId) {
+            const note = document.getElementById('resolution-note').value || 'Repaired and verified.';
+            const issue = state.issues.find(i => i.id === issueId);
+            if (issue) {
+                issue.status = 'Resolved';
+                issue.resolvedAt = new Date().toISOString();
+                issue.resolutionProof = note;
+                issue.history.push({
+                    status: 'Resolved',
+                    time: new Date().toISOString(),
+                    note: `Resolved by ${state.currentUser.name}: ${note}`
+                });
+                saveState();
+                document.getElementById('modal-container').innerHTML = '';
+                showToast(`Issue ${issueId} marked as Resolved!`, 'success');
+                render();
+            }
+        }
+
+
+        function toggleNotificationsModal() {
+            const modal = document.getElementById('modal-container');
+            const userNotes = state.notifications.filter(n => n.userId === state.currentUser.id);
+            
+            // Mark as read
+            state.notifications.forEach(n => { if(n.userId === state.currentUser.id) n.read = true; });
+            saveState();
+
+            modal.innerHTML = `
+                <div class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex justify-end">
+                    <div class="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-6 overflow-y-auto">
+                        <div class="flex justify-between items-center border-b border-slate-200 pb-4">
+                            <h3 class="font-bold text-lg text-slate-900"><i class="fa-regular fa-bell mr-2 text-indigo-600"></i> Notifications</h3>
+                            <button onclick="document.getElementById('modal-container').innerHTML=''" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <div class="flex-1 divide-y divide-slate-100 py-2">
+                            ${userNotes.length === 0 ? `
+                                <div class="text-center py-12 text-slate-400 text-sm">No new notifications.</div>
+                            ` : userNotes.map(n => `
+                                <div class="py-3 px-2 hover:bg-slate-50 rounded-xl transition">
+                                    <p class="text-xs text-slate-800 font-medium">${n.text}</p>
+                                    <span class="text-[10px] text-slate-400 mt-1 block">${n.time}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button onclick="document.getElementById('modal-container').innerHTML=''" class="w-full bg-indigo-600 text-white font-semibold py-3 rounded-xl text-sm shadow">Close</button>
+                    </div>
+                </div>
+            `;
+            render(); // update badge
+        }
+
+        // Initialize App on Window Load
+        window.onload = function() {
+            render();
+        };
+    </script>
+<script src="frontend/api.js"></script>
+</body>
+</html>

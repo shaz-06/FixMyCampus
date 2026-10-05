@@ -1,0 +1,1 @@
+const r=require('express').Router();const c=require('../controllers/adminController');const {protect}=require('../middleware/authMiddleware');const {adminOnly}=require('../middleware/adminMiddleware');r.use(protect,adminOnly);r.get('/dashboard',c.dashboard);r.get('/issues',c.issues);r.put('/issues/:id/status',c.status);module.exports=r;

@@ -1,0 +1,5 @@
+const {validationResult}=require('express-validator');const Announcement=require('../models/Announcement');
+exports.list=async(req,res,next)=>{try{res.json({success:true,data:await Announcement.find().populate('createdBy','name').sort('-createdAt')});}catch(e){next(e);}};
+exports.create=async(req,res,next)=>{try{const e=validationResult(req);if(!e.isEmpty())return res.status(400).json({success:false,message:e.array()[0].msg});const a=await Announcement.create({...req.body,createdBy:req.user._id});res.status(201).json({success:true,data:a});}catch(e){next(e);}};
+exports.update=async(req,res,next)=>{try{const a=await Announcement.findByIdAndUpdate(req.params.id,{$set:{title:req.body.title,content:req.body.content}},{new:true,runValidators:true});if(!a)return res.status(404).json({success:false,message:'Announcement not found.'});res.json({success:true,data:a});}catch(e){next(e);}};
+exports.remove=async(req,res,next)=>{try{const a=await Announcement.findByIdAndDelete(req.params.id);if(!a)return res.status(404).json({success:false,message:'Announcement not found.'});res.json({success:true,data:null});}catch(e){next(e);}};
